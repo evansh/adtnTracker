@@ -2,6 +2,19 @@
 
 Privacy-first, offline-capable iOS tracking for the 75 Hard challenge.
 
+## Continuous verification
+
+Every pull request and push to `main` runs:
+
+- Native iOS unit tests on a clean simulator
+- Swift warnings-as-errors compilation
+- Xcode static analysis
+- Release configuration smoke build
+- Repository-history credential scanning
+- Security policy checks for secret files, insecure transport, unsafe logging, workflow permissions, and mutable Action references
+
+GitHub Actions dependencies are pinned to immutable commit SHAs and updated through Dependabot. See [SECURITY.md](SECURITY.md) for disclosure and security-baseline details.
+
 ## Current MVP foundation
 
 The first implementation slice covers the shared foundation for the MVP backlog:
@@ -35,7 +48,7 @@ xcodebuild -project 75Hard.xcodeproj \
   test
 ```
 
-The project requires Xcode 26 or newer and targets iOS 18 or newer.
+The project requires Xcode 16.4 or newer and targets iOS 18 or newer.
 
 ## Security notes
 
