@@ -27,6 +27,14 @@ The first implementation slice covers the shared foundation for the MVP backlog:
 - SwiftUI onboarding and daily dashboard scaffolding
 - Unit tests for business rules, validation, dates, persistence, and restart behavior
 
+The current feature slice adds:
+
+- Interactive workout requirement cards and an explicit Day Complete state
+- Manual workout create, edit, and delete flows with timestamps and notes
+- Stable Workout #1 / Workout #2 assignment identifiers for future API and Android clients
+- Slot-aware completion and outdoor-workout evaluation
+- Canonical metric storage with localized imperial display at the iOS boundary
+
 ## Architecture
 
 The app uses dependency inversion across three layers:

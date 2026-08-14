@@ -2,6 +2,16 @@ import XCTest
 @testable import Hard75
 
 final class SecureFileChallengeRepositoryTests: XCTestCase {
+    func testLegacyWorkoutPayloadDecodesWithoutNewAssignmentMetadata() throws {
+        let data = Data(#"{"type":"Walk","durationMinutes":45,"isOutdoor":true,"distanceMeters":null}"#.utf8)
+
+        let workout = try JSONDecoder().decode(WorkoutEvidence.self, from: data)
+
+        XCTAssertEqual(workout.type, "Walk")
+        XCTAssertNil(workout.assignedSlot)
+        XCTAssertNil(workout.notes)
+    }
+
     func testStateRoundTripsAcrossRepositoryInstances() async throws {
         let directory = FileManager.default.temporaryDirectory
             .appending(path: UUID().uuidString, directoryHint: .isDirectory)
