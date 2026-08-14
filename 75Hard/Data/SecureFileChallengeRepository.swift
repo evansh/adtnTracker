@@ -7,16 +7,14 @@ actor SecureFileChallengeRepository: ChallengeRepository {
     }
 
     private let fileURL: URL
-    private let fileManager: FileManager
     private var cachedState: PersistedState?
 
-    init(fileURL: URL, fileManager: FileManager = .default) {
+    init(fileURL: URL) {
         self.fileURL = fileURL
-        self.fileManager = fileManager
     }
 
-    static func live(fileManager: FileManager = .default) throws -> SecureFileChallengeRepository {
-        let root = try fileManager.url(
+    static func live() throws -> SecureFileChallengeRepository {
+        let root = try FileManager.default.url(
             for: .applicationSupportDirectory,
             in: .userDomainMask,
             appropriateFor: nil,
@@ -24,8 +22,7 @@ actor SecureFileChallengeRepository: ChallengeRepository {
         )
         return SecureFileChallengeRepository(
             fileURL: root.appending(path: "75Hard", directoryHint: .isDirectory)
-                .appending(path: "challenge-state.json", directoryHint: .notDirectory),
-            fileManager: fileManager
+                .appending(path: "challenge-state.json", directoryHint: .notDirectory)
         )
     }
 
@@ -75,6 +72,7 @@ actor SecureFileChallengeRepository: ChallengeRepository {
 
     private func load() throws -> PersistedState {
         if let cachedState { return cachedState }
+        let fileManager = FileManager.default
         guard fileManager.fileExists(atPath: fileURL.path) else {
             let empty = PersistedState()
             cachedState = empty
@@ -92,6 +90,7 @@ actor SecureFileChallengeRepository: ChallengeRepository {
 
     private func persist(_ state: PersistedState) throws {
         do {
+            let fileManager = FileManager.default
             let directory = fileURL.deletingLastPathComponent()
             try fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
             var values = URLResourceValues()
