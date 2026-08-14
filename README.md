@@ -35,6 +35,16 @@ The current feature slice adds:
 - Slot-aware completion and outdoor-workout evaluation
 - Canonical metric storage with localized imperial display at the iOS boundary
 
+The personal MVP tracking loop also supports:
+
+- A correctable manual checkbox for every daily requirement; integrations are always optional
+- Editable hydration history with quick and custom amounts
+- User-defined diet rules and correctable daily compliance
+- Editable reading sessions with book and page details
+- Private progress-photo capture, replacement, and deletion with complete file protection
+- Challenge days locked to the timezone selected at challenge creation
+- Review and correction of incomplete prior days before a user confirms a restart
+
 ## Architecture
 
 The app uses dependency inversion across three layers:

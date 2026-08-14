@@ -15,6 +15,23 @@ struct RequirementEvaluation: Identifiable, Equatable, Sendable {
     let status: RequirementStatus
     let currentValue: Int?
     let targetValue: Int?
+    let isManuallyCompleted: Bool
+
+    init(
+        id: String,
+        title: String,
+        status: RequirementStatus,
+        currentValue: Int?,
+        targetValue: Int?,
+        isManuallyCompleted: Bool = false
+    ) {
+        self.id = id
+        self.title = title
+        self.status = status
+        self.currentValue = currentValue
+        self.targetValue = targetValue
+        self.isManuallyCompleted = isManuallyCompleted
+    }
 }
 
 struct DailyEvaluation: Equatable, Sendable {
@@ -41,6 +58,20 @@ struct RequirementEvaluator: Sendable {
         requirement: RequirementDefinition,
         evidence: [EvidenceRecord]
     ) -> RequirementEvaluation {
+        if evidence.contains(where: { record in
+            guard case let .manualCompletion(completion) = record.payload else { return false }
+            return completion.requirementID == requirement.id
+        }) {
+            return RequirementEvaluation(
+                id: requirement.id,
+                title: requirement.title,
+                status: .complete,
+                currentValue: targetValue(for: requirement.rule),
+                targetValue: targetValue(for: requirement.rule),
+                isManuallyCompleted: true
+            )
+        }
+
         switch requirement.rule {
         case let .minimumWorkoutCount(target, minimumMinutes):
             let matching = evidence.filter {
@@ -81,8 +112,14 @@ struct RequirementEvaluator: Sendable {
 
         case .dietCompliance:
             let confirmations = evidence.filter {
-                guard case let .diet(isCompliant) = $0.payload else { return false }
-                return isCompliant
+                switch $0.payload {
+                case let .diet(isCompliant):
+                    isCompliant
+                case let .dietCompliance(compliance):
+                    compliance.isCompliant
+                default:
+                    false
+                }
             }
             return aggregate(requirement, current: confirmations.isEmpty ? 0 : 1, target: 1, contributing: confirmations)
 
@@ -92,6 +129,22 @@ struct RequirementEvaluator: Sendable {
                 return true
             }
             return aggregate(requirement, current: photos.isEmpty ? 0 : 1, target: 1, contributing: photos)
+        }
+    }
+
+    private func targetValue(for rule: RequirementRule) -> Int {
+        switch rule {
+        case let .minimumWorkoutCount(target, _),
+             let .minimumOutdoorWorkoutCount(target, _):
+            target
+        case .assignedWorkout:
+            1
+        case let .minimumHydration(target):
+            target
+        case let .minimumReading(target):
+            target
+        case .dietCompliance, .progressPhoto:
+            1
         }
     }
 

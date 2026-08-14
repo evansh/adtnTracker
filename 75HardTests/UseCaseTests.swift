@@ -215,4 +215,246 @@ final class UseCaseTests: XCTestCase {
             XCTAssertEqual(error as? DomainError, .cannotModifyImportedEvidence)
         }
     }
+
+    func testManualRequirementCanBeCheckedAndCorrected() async throws {
+        let repository = InMemoryChallengeRepository()
+        let day = LocalDay(year: 2026, month: 8, day: 14)
+        let attempt = try await StartChallengeUseCase(
+            repository: repository,
+            program: .seventyFiveHard
+        ).execute(startedOn: day)
+        let occurredAt = try day.date(in: calendar).addingTimeInterval(12 * 60 * 60)
+        let useCase = SetManualRequirementCompletionUseCase(
+            repository: repository,
+            catalog: DefaultProgramCatalog(),
+            scheduler: ChallengeScheduler(calendar: calendar)
+        )
+
+        try await useCase.execute(
+            requirementID: "progress-photo",
+            isComplete: true,
+            occurredAt: occurredAt
+        )
+        var evidence = try await repository.evidence(attemptID: attempt.id, on: day)
+        XCTAssertEqual(evidence.count, 1)
+
+        try await useCase.execute(
+            requirementID: "progress-photo",
+            isComplete: false,
+            occurredAt: occurredAt
+        )
+        evidence = try await repository.evidence(attemptID: attempt.id, on: day)
+        XCTAssertTrue(evidence.isEmpty)
+    }
+
+    func testDashboardUsesChallengeCreationTimezoneAfterTravel() async throws {
+        let repository = InMemoryChallengeRepository()
+        let attempt = ChallengeAttempt(
+            programID: ProgramDefinition.seventyFiveHard.id,
+            programVersion: ProgramDefinition.seventyFiveHard.version,
+            startedOn: LocalDay(year: 2026, month: 8, day: 14),
+            timeZoneIdentifier: "America/Chicago"
+        )
+        try await repository.save(attempt)
+        var utcCalendar = Calendar(identifier: .gregorian)
+        utcCalendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let date = ISO8601DateFormatter().date(from: "2026-08-15T04:30:00Z")!
+
+        let snapshot = try await GetDashboardUseCase(
+            repository: repository,
+            catalog: DefaultProgramCatalog(),
+            scheduler: ChallengeScheduler(calendar: utcCalendar),
+            evaluator: RequirementEvaluator()
+        ).execute(at: date)
+
+        XCTAssertEqual(snapshot?.day, LocalDay(year: 2026, month: 8, day: 14))
+        XCTAssertEqual(snapshot?.timing.dayNumber, 1)
+    }
+
+    func testHydrationEntryCanBeCorrectedAndDeleted() async throws {
+        let repository = InMemoryChallengeRepository()
+        let day = LocalDay(year: 2026, month: 8, day: 14)
+        let attempt = try await StartChallengeUseCase(
+            repository: repository,
+            program: .seventyFiveHard
+        ).execute(
+            startedOn: day,
+            timeZoneIdentifier: "UTC"
+        )
+        let occurredAt = try day.date(in: calendar).addingTimeInterval(12 * 60 * 60)
+        let save = SaveManualHydrationUseCase(
+            repository: repository,
+            catalog: DefaultProgramCatalog(),
+            scheduler: ChallengeScheduler(calendar: calendar)
+        )
+
+        let created = try await save.execute(milliliters: 473, occurredAt: occurredAt)
+        let corrected = try await save.execute(
+            id: created.id,
+            milliliters: 355,
+            occurredAt: occurredAt
+        )
+        var entries = try await ListHydrationUseCase(repository: repository)
+            .execute(attemptID: attempt.id, on: day)
+        XCTAssertEqual(entries, [corrected])
+
+        try await DeleteManualHydrationUseCase(repository: repository).execute(id: corrected.id)
+        entries = try await ListHydrationUseCase(repository: repository)
+            .execute(attemptID: attempt.id, on: day)
+        XCTAssertTrue(entries.isEmpty)
+    }
+
+    func testDietPlanAndComplianceRemainUserCorrectable() async throws {
+        let repository = InMemoryChallengeRepository()
+        let day = LocalDay(year: 2026, month: 8, day: 14)
+        let attempt = try await StartChallengeUseCase(
+            repository: repository,
+            program: .seventyFiveHard
+        ).execute(startedOn: day, timeZoneIdentifier: "UTC")
+        let plan = try await ConfigureDietPlanUseCase(repository: repository).execute(
+            name: "  Whole Foods  ",
+            rules: "  No alcohol or added sugar.  "
+        )
+        XCTAssertEqual(plan.name, "Whole Foods")
+
+        let occurredAt = try day.date(in: calendar).addingTimeInterval(20 * 60 * 60)
+        let setCompliance = SetDietComplianceUseCase(
+            repository: repository,
+            catalog: DefaultProgramCatalog(),
+            scheduler: ChallengeScheduler(calendar: calendar)
+        )
+        _ = try await setCompliance.execute(
+            isCompliant: false,
+            notes: "Tapped incorrectly",
+            occurredAt: occurredAt
+        )
+        let corrected = try await setCompliance.execute(
+            isCompliant: true,
+            notes: "Corrected",
+            occurredAt: occurredAt
+        )
+        let saved = try await GetDietComplianceUseCase(repository: repository)
+            .execute(attemptID: attempt.id, on: day)
+
+        XCTAssertEqual(saved, corrected)
+        XCTAssertTrue(saved?.isCompliant == true)
+        XCTAssertEqual(saved?.notes, "Corrected")
+        let dietEvidence = try await repository.evidence(attemptID: attempt.id, on: day)
+        XCTAssertEqual(dietEvidence.count, 1)
+    }
+
+    func testReadingEntryCanBeCorrectedAndDeleted() async throws {
+        let repository = InMemoryChallengeRepository()
+        let day = LocalDay(year: 2026, month: 8, day: 14)
+        let attempt = try await StartChallengeUseCase(
+            repository: repository,
+            program: .seventyFiveHard
+        ).execute(startedOn: day, timeZoneIdentifier: "UTC")
+        let occurredAt = try day.date(in: calendar).addingTimeInterval(18 * 60 * 60)
+        let save = SaveManualReadingUseCase(
+            repository: repository,
+            catalog: DefaultProgramCatalog(),
+            scheduler: ChallengeScheduler(calendar: calendar)
+        )
+
+        let created = try await save.execute(
+            bookTitle: "  Atomic Habits  ",
+            startingPage: 10,
+            endingPage: 20,
+            occurredAt: occurredAt
+        )
+        let corrected = try await save.execute(
+            id: created.id,
+            bookID: created.reading.bookID,
+            bookTitle: "Atomic Habits",
+            startingPage: 10,
+            endingPage: 22,
+            occurredAt: occurredAt
+        )
+        var readings = try await ListReadingUseCase(repository: repository)
+            .execute(attemptID: attempt.id, on: day)
+        XCTAssertEqual(readings, [corrected])
+        XCTAssertEqual(corrected.reading.pagesRead, 12)
+
+        try await DeleteManualReadingUseCase(repository: repository).execute(id: corrected.id)
+        readings = try await ListReadingUseCase(repository: repository)
+            .execute(attemptID: attempt.id, on: day)
+        XCTAssertTrue(readings.isEmpty)
+    }
+
+    func testProgressPhotoIsStoredPrivatelyAndCanBeReplacedAndDeleted() async throws {
+        let repository = InMemoryChallengeRepository()
+        let photoStore = InMemoryProgressPhotoStore()
+        let day = LocalDay(year: 2026, month: 8, day: 14)
+        let attempt = try await StartChallengeUseCase(
+            repository: repository,
+            program: .seventyFiveHard
+        ).execute(startedOn: day, timeZoneIdentifier: "UTC")
+        let occurredAt = try day.date(in: calendar).addingTimeInterval(9 * 60 * 60)
+        let save = SaveProgressPhotoUseCase(
+            repository: repository,
+            photoStore: photoStore,
+            catalog: DefaultProgramCatalog(),
+            scheduler: ChallengeScheduler(calendar: calendar)
+        )
+
+        let created = try await save.execute(jpegData: Data([1, 2, 3]), occurredAt: occurredAt)
+        let replaced = try await save.execute(jpegData: Data([4, 5, 6]), occurredAt: occurredAt)
+        XCTAssertEqual(replaced.id, created.id)
+        XCTAssertEqual(replaced.photoRecordID, created.photoRecordID)
+        let replacedData = try await photoStore.jpegData(id: replaced.photoRecordID)
+        let storedPhoto = try await GetProgressPhotoUseCase(repository: repository)
+            .execute(attemptID: attempt.id, on: day)
+        XCTAssertEqual(replacedData, Data([4, 5, 6]))
+        XCTAssertEqual(storedPhoto, replaced)
+
+        try await DeleteProgressPhotoUseCase(
+            repository: repository,
+            photoStore: photoStore
+        ).execute(id: replaced.id)
+        let deletedData = try await photoStore.jpegData(id: replaced.photoRecordID)
+        let deletedEvidence = try await repository.evidence(id: replaced.id)
+        XCTAssertNil(deletedData)
+        XCTAssertNil(deletedEvidence)
+    }
+
+    func testIncompleteDayCanBeCorrectedInsteadOfForcingFailure() async throws {
+        let repository = InMemoryChallengeRepository()
+        let startDay = LocalDay(year: 2026, month: 8, day: 14)
+        _ = try await StartChallengeUseCase(
+            repository: repository,
+            program: .seventyFiveHard
+        ).execute(startedOn: startDay, timeZoneIdentifier: "UTC")
+        let scheduler = ChallengeScheduler(calendar: calendar)
+        let finder = FindFirstIncompleteDayUseCase(
+            repository: repository,
+            catalog: DefaultProgramCatalog(),
+            scheduler: scheduler,
+            evaluator: RequirementEvaluator()
+        )
+        let nextDay = try startDay.date(in: calendar).addingTimeInterval(36 * 60 * 60)
+
+        let initialReview = try await finder.execute(at: nextDay)
+        XCTAssertEqual(initialReview?.day, startDay)
+        XCTAssertEqual(initialReview?.unmetRequirements.count, 7)
+
+        let completion = SetManualRequirementCompletionUseCase(
+            repository: repository,
+            catalog: DefaultProgramCatalog(),
+            scheduler: scheduler
+        )
+        let correctionTime = try startDay.date(in: calendar).addingTimeInterval(12 * 60 * 60)
+        for requirement in ProgramDefinition.seventyFiveHard.requirements {
+            try await completion.execute(
+                requirementID: requirement.id,
+                isComplete: true,
+                occurredAt: correctionTime
+            )
+        }
+
+        let correctedReview = try await finder.execute(at: nextDay)
+        let activeAttempt = try await repository.activeAttempt()
+        XCTAssertNil(correctedReview)
+        XCTAssertNotNil(activeAttempt)
+    }
 }

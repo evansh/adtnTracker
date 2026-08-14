@@ -116,6 +116,25 @@ final class RequirementEvaluatorTests: XCTestCase {
         XCTAssertEqual(evaluation.requirements.first(where: { $0.id == "water" })?.status, .notComplete)
     }
 
+    func testManualCompletionSatisfiesRequirementWithoutIntegration() {
+        let evidence = record(.manualCompletion(ManualCompletionEvidence(
+            requirementID: "reading",
+            notes: nil
+        )))
+
+        let evaluation = RequirementEvaluator().evaluate(
+            program: .seventyFiveHard,
+            evidence: [evidence],
+            attemptID: attemptID,
+            day: day
+        )
+        let reading = evaluation.requirements.first { $0.id == "reading" }
+
+        XCTAssertEqual(reading?.status, .complete)
+        XCTAssertEqual(reading?.currentValue, 10)
+        XCTAssertTrue(reading?.isManuallyCompleted == true)
+    }
+
     private func record(
         _ payload: EvidencePayload,
         source: EvidenceSource = .manual,
