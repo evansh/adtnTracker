@@ -46,6 +46,9 @@ enum DomainError: Error, Equatable, LocalizedError {
     case evidenceOutsideActiveAttempt
     case invalidRestartDate
     case invalidProgramDefinition
+    case evidenceNotFound
+    case workoutSlotAlreadyAssigned
+    case cannotModifyImportedEvidence
     case persistenceFailure
 
     var errorDescription: String? {
@@ -57,6 +60,9 @@ enum DomainError: Error, Equatable, LocalizedError {
         case .evidenceOutsideActiveAttempt: "Evidence must belong to the active challenge window."
         case .invalidRestartDate: "A restart must begin after the failed day."
         case .invalidProgramDefinition: "The challenge program definition is invalid."
+        case .evidenceNotFound: "The selected entry could not be found."
+        case .workoutSlotAlreadyAssigned: "That workout slot already has an entry for this day."
+        case .cannotModifyImportedEvidence: "Imported evidence must be managed by its source."
         case .persistenceFailure: "The challenge state could not be saved securely."
         }
     }
@@ -114,6 +120,30 @@ struct WorkoutEvidence: Codable, Equatable, Sendable {
     let durationMinutes: Int
     let isOutdoor: Bool
     let distanceMeters: Double?
+    let assignedSlot: WorkoutSlot?
+    let notes: String?
+
+    init(
+        type: String,
+        durationMinutes: Int,
+        isOutdoor: Bool,
+        distanceMeters: Double?,
+        assignedSlot: WorkoutSlot? = nil,
+        notes: String? = nil
+    ) {
+        self.type = type
+        self.durationMinutes = durationMinutes
+        self.isOutdoor = isOutdoor
+        self.distanceMeters = distanceMeters
+        self.assignedSlot = assignedSlot
+        self.notes = notes
+    }
+}
+
+/// Stable, platform-neutral identifiers used by iOS, a future API, and Android.
+enum WorkoutSlot: String, Codable, CaseIterable, Equatable, Sendable {
+    case first = "workout-1"
+    case second = "workout-2"
 }
 
 struct ReadingEvidence: Codable, Equatable, Sendable {
@@ -160,6 +190,29 @@ struct EvidenceRecord: Identifiable, Codable, Equatable, Sendable {
         self.verification = verification
         self.externalID = externalID
         self.payload = payload
+    }
+}
+
+struct RecordedWorkout: Identifiable, Equatable, Sendable {
+    let id: UUID
+    let attemptID: UUID
+    let occurredOn: LocalDay
+    let occurredAt: Date
+    let source: EvidenceSource
+    let verification: VerificationStatus
+    let workout: WorkoutEvidence
+
+    var canEdit: Bool { source == .manual }
+
+    init?(record: EvidenceRecord) {
+        guard case let .workout(workout) = record.payload else { return nil }
+        id = record.id
+        attemptID = record.attemptID
+        occurredOn = record.occurredOn
+        occurredAt = record.occurredAt
+        source = record.source
+        verification = record.verification
+        self.workout = workout
     }
 }
 

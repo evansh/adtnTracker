@@ -49,6 +49,13 @@ struct RequirementEvaluator: Sendable {
             }
             return aggregate(requirement, current: matching.count, target: target, contributing: matching)
 
+        case let .assignedWorkout(slot, minimumMinutes):
+            let matching = evidence.filter {
+                guard case let .workout(workout) = $0.payload else { return false }
+                return workout.assignedSlot == slot && workout.durationMinutes >= minimumMinutes
+            }
+            return aggregate(requirement, current: matching.isEmpty ? 0 : 1, target: 1, contributing: matching)
+
         case let .minimumOutdoorWorkoutCount(target, minimumMinutes):
             let matching = evidence.filter {
                 guard case let .workout(workout) = $0.payload else { return false }

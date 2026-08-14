@@ -45,6 +45,10 @@ actor InMemoryChallengeRepository: ChallengeRepository {
         records.filter { $0.attemptID == attemptID && $0.occurredOn == day }
     }
 
+    func evidence(id: UUID) async throws -> EvidenceRecord? {
+        records.first { $0.id == id }
+    }
+
     func save(_ evidence: EvidenceRecord) async throws {
         if let index = records.firstIndex(where: { $0.id == evidence.id }) {
             records[index] = evidence

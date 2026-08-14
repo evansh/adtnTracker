@@ -48,6 +48,10 @@ actor SecureFileChallengeRepository: ChallengeRepository {
         try load().evidence.filter { $0.attemptID == attemptID && $0.occurredOn == day }
     }
 
+    func evidence(id: UUID) async throws -> EvidenceRecord? {
+        try load().evidence.first { $0.id == id }
+    }
+
     func save(_ evidence: EvidenceRecord) async throws {
         var state = try load()
 

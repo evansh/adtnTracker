@@ -5,6 +5,7 @@ import Combine
 final class AppViewModel: ObservableObject {
     private let dependencies: DependencyContainer
     @Published private(set) var dashboard: DashboardSnapshot?
+    @Published private(set) var workouts: [RecordedWorkout] = []
     @Published private(set) var isLoading = false
     @Published var errorMessage: String?
 
@@ -19,6 +20,9 @@ final class AppViewModel: ObservableObject {
         defer { isLoading = false }
         do {
             dashboard = try await dashboardUseCase.execute(on: today)
+            workouts = try await ListRecordedWorkoutsUseCase(
+                repository: dependencies.repository
+            ).execute(on: today)
             errorMessage = nil
         } catch {
             errorMessage = error.localizedDescription
@@ -50,6 +54,33 @@ final class AppViewModel: ObservableObject {
             startingPage: startingPage,
             endingPage: endingPage
         )))
+    }
+
+    @discardableResult
+    func saveWorkout(_ draft: WorkoutDraft) async -> Bool {
+        do {
+            _ = try await SaveManualWorkoutUseCase(
+                repository: dependencies.repository,
+                catalog: dependencies.catalog,
+                scheduler: ChallengeScheduler(calendar: dependencies.calendar)
+            ).execute(draft)
+            await load()
+            return true
+        } catch {
+            errorMessage = error.localizedDescription
+            return false
+        }
+    }
+
+    func deleteWorkout(id: UUID) async {
+        do {
+            try await DeleteManualWorkoutUseCase(
+                repository: dependencies.repository
+            ).execute(id: id)
+            await load()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
     }
 
     private var dashboardUseCase: GetDashboardUseCase {

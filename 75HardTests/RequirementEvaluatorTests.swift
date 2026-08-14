@@ -7,8 +7,8 @@ final class RequirementEvaluatorTests: XCTestCase {
 
     func testAllRequirementsMustPassBeforeDayCompletes() {
         let evidence = [
-            record(.workout(WorkoutEvidence(type: "Walk", durationMinutes: 45, isOutdoor: true, distanceMeters: nil))),
-            record(.workout(WorkoutEvidence(type: "Strength", durationMinutes: 45, isOutdoor: false, distanceMeters: nil))),
+            record(.workout(WorkoutEvidence(type: "Walk", durationMinutes: 45, isOutdoor: true, distanceMeters: nil, assignedSlot: .first))),
+            record(.workout(WorkoutEvidence(type: "Strength", durationMinutes: 45, isOutdoor: false, distanceMeters: nil, assignedSlot: .second))),
             record(.hydration(milliliters: 3_000)),
             record(.reading(ReadingEvidence(bookID: UUID(), startingPage: 10, endingPage: 20))),
             record(.diet(isCompliant: true)),
@@ -29,8 +29,8 @@ final class RequirementEvaluatorTests: XCTestCase {
 
     func testCompleteDayUsesNormalizedEvidence() {
         let evidence = [
-            record(.workout(WorkoutEvidence(type: "Walk", durationMinutes: 45, isOutdoor: true, distanceMeters: nil))),
-            record(.workout(WorkoutEvidence(type: "Strength", durationMinutes: 60, isOutdoor: false, distanceMeters: nil))),
+            record(.workout(WorkoutEvidence(type: "Walk", durationMinutes: 45, isOutdoor: true, distanceMeters: nil, assignedSlot: .first))),
+            record(.workout(WorkoutEvidence(type: "Strength", durationMinutes: 60, isOutdoor: false, distanceMeters: nil, assignedSlot: .second))),
             record(.hydration(milliliters: 2_000)),
             record(.hydration(milliliters: 1_785)),
             record(.reading(ReadingEvidence(bookID: UUID(), startingPage: 0, endingPage: 10))),
@@ -51,7 +51,7 @@ final class RequirementEvaluatorTests: XCTestCase {
 
     func testVerifiedProviderEvidenceGetsDistinctStatus() {
         let workout = record(
-            .workout(WorkoutEvidence(type: "Run", durationMinutes: 50, isOutdoor: true, distanceMeters: 8_000)),
+            .workout(WorkoutEvidence(type: "Run", durationMinutes: 50, isOutdoor: true, distanceMeters: 8_000, assignedSlot: .first)),
             source: .appleHealth,
             verification: .sourceVerified
         )
@@ -65,6 +65,27 @@ final class RequirementEvaluatorTests: XCTestCase {
 
         XCTAssertEqual(evaluation.requirements.first(where: { $0.id == "workout-1" })?.status, .automaticallyVerified)
         XCTAssertEqual(evaluation.requirements.first(where: { $0.id == "outdoor-workout" })?.status, .automaticallyVerified)
+    }
+
+    func testAssignedWorkoutOnlyCompletesItsOwnSlot() {
+        let workout = record(.workout(WorkoutEvidence(
+            type: "Walk",
+            durationMinutes: 45,
+            isOutdoor: true,
+            distanceMeters: nil,
+            assignedSlot: .first
+        )))
+
+        let evaluation = RequirementEvaluator().evaluate(
+            program: .seventyFiveHard,
+            evidence: [workout],
+            attemptID: attemptID,
+            day: day
+        )
+
+        XCTAssertEqual(evaluation.requirements.first(where: { $0.id == "workout-1" })?.status, .complete)
+        XCTAssertEqual(evaluation.requirements.first(where: { $0.id == "workout-2" })?.status, .notComplete)
+        XCTAssertEqual(evaluation.requirements.first(where: { $0.id == "outdoor-workout" })?.status, .complete)
     }
 
     func testEvidenceFromAnotherDayOrAttemptIsIgnored() {
