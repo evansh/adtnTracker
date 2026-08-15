@@ -2,6 +2,7 @@ import Foundation
 
 struct DependencyContainer: Sendable {
     let repository: any ChallengeRepository
+    let photoStore: any ProgressPhotoStore
     let catalog: any ProgramCatalog
     let calendar: Calendar
 
@@ -10,6 +11,7 @@ struct DependencyContainer: Sendable {
         calendar.timeZone = .autoupdatingCurrent
         return DependencyContainer(
             repository: try SecureFileChallengeRepository.live(),
+            photoStore: try SecureProgressPhotoStore.live(),
             catalog: DefaultProgramCatalog(),
             calendar: calendar
         )
@@ -20,10 +22,19 @@ struct DependencyContainer: Sendable {
         calendar.timeZone = .autoupdatingCurrent
         return DependencyContainer(
             repository: InMemoryChallengeRepository(),
+            photoStore: InMemoryProgressPhotoStore(),
             catalog: DefaultProgramCatalog(),
             calendar: calendar
         )
     }
+}
+
+actor InMemoryProgressPhotoStore: ProgressPhotoStore {
+    private var photos: [UUID: Data] = [:]
+
+    func saveJPEG(_ data: Data, id: UUID) async throws { photos[id] = data }
+    func jpegData(id: UUID) async throws -> Data? { photos[id] }
+    func delete(id: UUID) async throws { photos[id] = nil }
 }
 
 actor InMemoryChallengeRepository: ChallengeRepository {

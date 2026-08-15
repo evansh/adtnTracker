@@ -22,6 +22,7 @@ struct ChallengeScheduler: Sendable {
         program: ProgramDefinition,
         on day: LocalDay
     ) throws -> ChallengeTiming {
+        let calendar = calendar(for: attempt)
         guard program.durationDays > 0 else { throw DomainError.invalidProgramDefinition }
         let startDate = try attempt.startedOn.date(in: calendar)
         let queryDate = try day.date(in: calendar)
@@ -64,5 +65,14 @@ struct ChallengeScheduler: Sendable {
             daysRemaining: program.durationDays - dayNumber,
             completionPercentage: Double(dayNumber) / Double(program.durationDays) * 100
         )
+    }
+
+    func calendar(for attempt: ChallengeAttempt) -> Calendar {
+        guard let identifier = attempt.timeZoneIdentifier,
+              let timeZone = TimeZone(identifier: identifier)
+        else { return calendar }
+        var lockedCalendar = calendar
+        lockedCalendar.timeZone = timeZone
+        return lockedCalendar
     }
 }

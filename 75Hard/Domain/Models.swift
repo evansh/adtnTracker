@@ -74,11 +74,18 @@ enum ChallengeAttemptStatus: Codable, Equatable, Sendable {
     case completed(completedOn: LocalDay)
 }
 
+struct DietPlan: Codable, Equatable, Sendable {
+    var name: String
+    var rules: String
+}
+
 struct ChallengeAttempt: Identifiable, Codable, Equatable, Sendable {
     let id: UUID
     let programID: String
     let programVersion: Int
     let startedOn: LocalDay
+    let timeZoneIdentifier: String?
+    var dietPlan: DietPlan?
     var status: ChallengeAttemptStatus
     let createdAt: Date
 
@@ -87,6 +94,8 @@ struct ChallengeAttempt: Identifiable, Codable, Equatable, Sendable {
         programID: String,
         programVersion: Int,
         startedOn: LocalDay,
+        timeZoneIdentifier: String? = nil,
+        dietPlan: DietPlan? = nil,
         status: ChallengeAttemptStatus = .active,
         createdAt: Date = .now
     ) {
@@ -94,6 +103,8 @@ struct ChallengeAttempt: Identifiable, Codable, Equatable, Sendable {
         self.programID = programID
         self.programVersion = programVersion
         self.startedOn = startedOn
+        self.timeZoneIdentifier = timeZoneIdentifier
+        self.dietPlan = dietPlan
         self.status = status
         self.createdAt = createdAt
     }
@@ -150,8 +161,31 @@ struct ReadingEvidence: Codable, Equatable, Sendable {
     let bookID: UUID
     let startingPage: Int
     let endingPage: Int
+    let bookTitle: String?
+
+    init(
+        bookID: UUID,
+        startingPage: Int,
+        endingPage: Int,
+        bookTitle: String? = nil
+    ) {
+        self.bookID = bookID
+        self.startingPage = startingPage
+        self.endingPage = endingPage
+        self.bookTitle = bookTitle
+    }
 
     var pagesRead: Int { endingPage - startingPage }
+}
+
+struct ManualCompletionEvidence: Codable, Equatable, Sendable {
+    let requirementID: String
+    let notes: String?
+}
+
+struct DietComplianceEvidence: Codable, Equatable, Sendable {
+    let isCompliant: Bool
+    let notes: String?
 }
 
 enum EvidencePayload: Codable, Equatable, Sendable {
@@ -159,7 +193,9 @@ enum EvidencePayload: Codable, Equatable, Sendable {
     case hydration(milliliters: Int)
     case reading(ReadingEvidence)
     case diet(isCompliant: Bool)
+    case dietCompliance(DietComplianceEvidence)
     case progressPhoto(photoRecordID: UUID)
+    case manualCompletion(ManualCompletionEvidence)
 }
 
 struct EvidenceRecord: Identifiable, Codable, Equatable, Sendable {
@@ -213,6 +249,77 @@ struct RecordedWorkout: Identifiable, Equatable, Sendable {
         source = record.source
         verification = record.verification
         self.workout = workout
+    }
+}
+
+struct RecordedHydration: Identifiable, Equatable, Sendable {
+    let id: UUID
+    let occurredAt: Date
+    let source: EvidenceSource
+    let milliliters: Int
+
+    var canEdit: Bool { source == .manual }
+
+    init?(record: EvidenceRecord) {
+        guard case let .hydration(milliliters) = record.payload else { return nil }
+        id = record.id
+        occurredAt = record.occurredAt
+        source = record.source
+        self.milliliters = milliliters
+    }
+}
+
+struct RecordedDietCompliance: Identifiable, Equatable, Sendable {
+    let id: UUID
+    let occurredAt: Date
+    let isCompliant: Bool
+    let notes: String?
+
+    init?(record: EvidenceRecord) {
+        switch record.payload {
+        case let .diet(isCompliant):
+            id = record.id
+            occurredAt = record.occurredAt
+            self.isCompliant = isCompliant
+            notes = nil
+        case let .dietCompliance(compliance):
+            id = record.id
+            occurredAt = record.occurredAt
+            isCompliant = compliance.isCompliant
+            notes = compliance.notes
+        default:
+            return nil
+        }
+    }
+}
+
+struct RecordedReading: Identifiable, Equatable, Sendable {
+    let id: UUID
+    let occurredAt: Date
+    let source: EvidenceSource
+    let reading: ReadingEvidence
+
+    var canEdit: Bool { source == .manual }
+
+    init?(record: EvidenceRecord) {
+        guard case let .reading(reading) = record.payload else { return nil }
+        id = record.id
+        occurredAt = record.occurredAt
+        source = record.source
+        self.reading = reading
+    }
+}
+
+struct RecordedProgressPhoto: Identifiable, Equatable, Sendable {
+    let id: UUID
+    let photoRecordID: UUID
+    let occurredAt: Date
+
+    init?(record: EvidenceRecord) {
+        guard case let .progressPhoto(photoRecordID) = record.payload else { return nil }
+        id = record.id
+        self.photoRecordID = photoRecordID
+        occurredAt = record.occurredAt
     }
 }
 

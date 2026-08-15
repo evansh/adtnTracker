@@ -2,6 +2,32 @@ import XCTest
 @testable import Hard75
 
 final class SecureFileChallengeRepositoryTests: XCTestCase {
+    private struct LegacyChallengeAttempt: Encodable {
+        let id: UUID
+        let programID: String
+        let programVersion: Int
+        let startedOn: LocalDay
+        let status: ChallengeAttemptStatus
+        let createdAt: Date
+    }
+
+    func testLegacyAttemptDecodesWithoutTimezoneOrDietPlan() throws {
+        let legacy = LegacyChallengeAttempt(
+            id: UUID(),
+            programID: "75-hard",
+            programVersion: 1,
+            startedOn: LocalDay(year: 2026, month: 8, day: 14),
+            status: .active,
+            createdAt: .now
+        )
+        let data = try JSONEncoder().encode(legacy)
+
+        let attempt = try JSONDecoder().decode(ChallengeAttempt.self, from: data)
+
+        XCTAssertNil(attempt.timeZoneIdentifier)
+        XCTAssertNil(attempt.dietPlan)
+    }
+
     func testLegacyWorkoutPayloadDecodesWithoutNewAssignmentMetadata() throws {
         let data = Data(#"{"type":"Walk","durationMinutes":45,"isOutdoor":true,"distanceMeters":null}"#.utf8)
 
@@ -10,6 +36,18 @@ final class SecureFileChallengeRepositoryTests: XCTestCase {
         XCTAssertEqual(workout.type, "Walk")
         XCTAssertNil(workout.assignedSlot)
         XCTAssertNil(workout.notes)
+    }
+
+    func testLegacyReadingPayloadDecodesWithoutBookTitle() throws {
+        let bookID = UUID()
+        let data = Data("""
+        {"bookID":"\(bookID.uuidString)","startingPage":10,"endingPage":20}
+        """.utf8)
+
+        let reading = try JSONDecoder().decode(ReadingEvidence.self, from: data)
+
+        XCTAssertEqual(reading.bookID, bookID)
+        XCTAssertNil(reading.bookTitle)
     }
 
     func testStateRoundTripsAcrossRepositoryInstances() async throws {

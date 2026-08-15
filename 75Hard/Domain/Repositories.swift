@@ -9,3 +9,9 @@ protocol ChallengeRepository: Sendable {
     func save(_ evidence: EvidenceRecord) async throws
     func deleteEvidence(id: UUID) async throws
 }
+
+protocol ProgressPhotoStore: Sendable {
+    func saveJPEG(_ data: Data, id: UUID) async throws
+    func jpegData(id: UUID) async throws -> Data?
+    func delete(id: UUID) async throws
+}
