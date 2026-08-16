@@ -2,9 +2,9 @@ name: CI/CD Pipeline
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main, develop, "feat/**"]
   pull_request:
-    branches: [main, develop]
+    branches: [main, develop, "feat/**"]
   schedule:
     - cron: '0 2 * * 1'  # Weekly security scan
   workflow_dispatch:
