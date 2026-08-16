@@ -3,7 +3,6 @@
 import logging
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Optional
 
 import numpy as np
 import pandas as pd
@@ -233,12 +232,12 @@ class SimpleBacktester:
         return self.equity_curve.reset_index().rename(columns={"index": "timestamp", 0: "equity"})
 
 
-def generate_candlestick_signals(data: pd.DataFrame, lookback: int = 5) -> pd.Series:
+def generate_candlestick_signals(data: pd.DataFrame, _lookback: int = 5) -> pd.Series:
     """Generate simple candlestick pattern signals for demonstration.
 
     Args:
         data: DataFrame with OHLCV data
-        lookback: Number of periods for pattern confirmation
+        _lookback: Number of periods for pattern confirmation (unused, kept for API compatibility)
 
     Returns:
         Series with 1 (long), -1 (short), 0 (flat)

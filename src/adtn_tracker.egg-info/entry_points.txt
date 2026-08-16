@@ -1,0 +1,2 @@
+[console_scripts]
+adtn-tracker = adtn_tracker.cli:main

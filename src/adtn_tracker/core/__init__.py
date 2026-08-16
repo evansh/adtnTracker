@@ -4,9 +4,6 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from typing import Any, Optional
-
-import pandas as pd
 
 
 class TimeFrame(str, Enum):
@@ -358,10 +355,12 @@ class Strategy(ABC):
         """Process new quote and return orders to place."""
         pass
 
+    @abstractmethod
     def on_start(self) -> None:
         """Called when strategy starts."""
         pass
 
+    @abstractmethod
     def on_stop(self) -> None:
         """Called when strategy stops."""
         pass

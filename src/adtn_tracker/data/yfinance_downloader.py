@@ -1,9 +1,7 @@
 """Yahoo Finance data downloader for ADTN equity historicals."""
 
-import os
 import logging
 from pathlib import Path
-from typing import Optional
 
 import pandas as pd
 import yfinance as yf
@@ -45,7 +43,9 @@ class YFinanceDownloader:
             logger.info(f"Loading cached data for {symbol} from {cache_path}")
             return pd.read_parquet(cache_path)
 
-        logger.info(f"Downloading {symbol} from Yahoo Finance (period={period}, interval={interval})")
+        logger.info(
+            f"Downloading {symbol} from Yahoo Finance (period={period}, interval={interval})"
+        )
         ticker = yf.Ticker(symbol)
         df = ticker.history(period=period, interval=interval, auto_adjust=True)
 

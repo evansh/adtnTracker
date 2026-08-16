@@ -157,7 +157,7 @@ class CandlestickPatternStrategy(Strategy):
             return -1
         return 0
 
-    def on_quote(self, quote: Quote) -> list[Order]:
+    def on_quote(self, _quote: Quote) -> list[Order]:
         return []
 
 
@@ -225,5 +225,5 @@ class MovingAverageCrossoverStrategy(Strategy):
 
         return orders
 
-    def on_quote(self, quote: Quote) -> list[Order]:
+    def on_quote(self, _quote: Quote) -> list[Order]:
         return []
