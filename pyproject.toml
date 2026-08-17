@@ -120,7 +120,7 @@ no_implicit_optional = false
 allow_untyped_globals = true
 allow_untyped_calls = true
 
-[tool.mypy-overrides]
+[tool.mypy.overrides]
 module = "src.adtn_tracker.*"
 allow_untyped_defs = true
 allow_untyped_decorators = true
