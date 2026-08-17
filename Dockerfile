@@ -8,15 +8,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements first for better caching
+# Copy the entire project for proper package installation
 COPY pyproject.toml .
-RUN pip install --no-cache-dir -e .
-
-# Copy the application code
+COPY README.md .
 COPY src/ ./src/
 COPY scripts/ ./scripts/
 COPY notebooks/ ./notebooks/
 COPY docs/ ./docs/
+
+# Install the package
+RUN pip install --no-cache-dir -e .
 
 # Create data and output directories
 RUN mkdir -p data output
