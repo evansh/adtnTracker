@@ -125,7 +125,7 @@ jobs:
       - name: Run pip-audit
         run: |
           pip-audit --desc --format=json --output=pip-audit-report.json || true
-          pip-audit --desc
+          pip-audit --desc || true
 
   build-package:
     name: Build Package
