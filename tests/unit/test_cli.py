@@ -70,3 +70,28 @@ class TestCLI:
         )
         assert result.returncode == 0
         assert "adtn_tracker" in result.stdout
+
+    def test_cli_value_wheel_help(self):
+        """Test value-wheel subcommand help."""
+        result = subprocess.run(
+            [sys.executable, "-m", "adtn_tracker.cli", "value-wheel", "--help"],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0
+        assert "symbol" in result.stdout
+        assert "years" in result.stdout
+        assert "buy-zone" in result.stdout
+        assert "strike" in result.stdout
+
+    def test_cli_value_wheel_analysis(self):
+        """Test value-wheel analysis runs."""
+        result = subprocess.run(
+            [sys.executable, "-m", "adtn_tracker.cli", "value-wheel", "ADTN", "--years", "2"],
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+        assert result.returncode == 0
+        assert "VALUE WHEEL ANALYSIS" in result.stdout
+        assert "BUY" in result.stdout or "WAIT" in result.stdout
