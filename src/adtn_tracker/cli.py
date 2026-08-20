@@ -221,7 +221,7 @@ def cmd_value_wheel(args):
     from .strategies.value_wheel import run_value_wheel_backtest, ValueWheelConfig
     
     cfg = ValueWheelConfig(
-        buy_zone_pct=args.buy_zone,
+        fixed_buy_threshold=args.threshold,
         call_strike=args.strike,
     )
     
@@ -230,19 +230,22 @@ def cmd_value_wheel(args):
         print(f"Error: {result['error']}")
         return
     
+    # # Fixed price threshold from args
+    fixed_threshold = args.threshold
+    
     print(f"\n=== VALUE WHEEL ANALYSIS: {args.symbol} ===")
     print(f"Lookback: {args.years} years")
-    print(f"Buy Zone: {args.buy_zone*100:.0f}% above yearly low avg")
+    print(f"Fixed Buy Threshold: ${fixed_threshold:.2f}")
     print(f"Call Strike: ${args.strike:.2f}")
-    print(f"\nAction: {'BUY' if result['current_price'] <= result['buy_threshold'] else 'WAIT'}")
+    print(f"\nAction: {'BUY' if result['current_price'] <= fixed_threshold else 'WAIT'}")
     print(f"  Current Price: ${result['current_price']:.2f}")
-    print(f"  Buy Threshold: ${result['buy_threshold']:.2f}")
-    print(f"  Distance to Threshold: {((result['buy_threshold'] - result['current_price']) / result['current_price'] * 100):+.1f}%")
+    print(f"  Fixed Threshold: ${fixed_threshold:.2f}")
+    print(f"  Distance to Threshold: {((fixed_threshold - result['current_price']) / result['current_price'] * 100):+.1f}%")
     print(f"\nStrategy:")
-    print(f"  1. Buy 100 shares when price <= ${result['buy_threshold']:.2f}")
+    print(f"  1. Buy 100 shares when price <= ${fixed_threshold:.2f}")
     print(f"  2. Sell covered calls at ${args.strike:.2f} strike")
     print(f"  3. Collect premium, reinvest")
-    print(f"  4. If assigned at ${args.strike:.2f}, profit = ${(args.strike - result['buy_threshold'])*100:.0f} + premiums")
+    print(f"  4. If assigned at ${args.strike:.2f}, profit = ${(args.strike - fixed_threshold)*100:.0f} + premiums")
 
 
 def main():
@@ -309,7 +312,7 @@ def main():
     p_vw = subparsers.add_parser("value-wheel", help="Value Wheel Strategy analysis")
     p_vw.add_argument("symbol", help="Symbol (e.g., ADTN)")
     p_vw.add_argument("--years", type=int, default=5, help="Years of history to analyze")
-    p_vw.add_argument("--buy-zone", type=float, default=0.10, help="Buy zone % above yearly low avg")
+    p_vw.add_argument("--threshold", type=float, default=8.0, help="Fixed price threshold to buy (e.g., 8.0)")
     p_vw.add_argument("--strike", type=float, default=15.0, help="Call strike to sell")
     p_vw.set_defaults(func=cmd_value_wheel)
 

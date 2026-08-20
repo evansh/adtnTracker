@@ -81,7 +81,7 @@ class TestCLI:
         assert result.returncode == 0
         assert "symbol" in result.stdout
         assert "years" in result.stdout
-        assert "buy-zone" in result.stdout
+        assert "threshold" in result.stdout
         assert "strike" in result.stdout
 
     def test_cli_value_wheel_analysis(self):

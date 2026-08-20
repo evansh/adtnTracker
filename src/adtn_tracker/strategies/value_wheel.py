@@ -24,7 +24,7 @@ class ValueWheelConfig:
     """Configuration for Value Wheel Strategy."""
     # Entry criteria
     lookback_years: int = 5
-    buy_zone_pct: float = 0.10  # Within 10% of yearly low average
+    fixed_buy_threshold: float = 8.0  # Buy when price <= this threshold
     
     # Position sizing
     initial_capital: float = 100000.0
@@ -96,16 +96,9 @@ class ValueWheelStrategy(Strategy):
             )
         return yearly_stats
     
-    def compute_buy_threshold(self, yearly_stats: dict[int, YearlyStats]) -> float:
-        """Compute buy threshold as average of yearly lows * (1 + buy_zone_pct)."""
-        if not yearly_stats:
-            return 0.0
-        avg_yearly_low = np.mean([s.avg_low for s in yearly_stats.values()])
-        return avg_yearly_low * (1 + self.config.buy_zone_pct)
-    
     def should_buy(self, current_price: float) -> bool:
-        """Check if current price is in buy zone."""
-        return current_price <= self._buy_threshold and current_price > 0
+        """Check if current price is at or below fixed buy threshold."""
+        return current_price <= self.config.fixed_buy_threshold and current_price > 0
     
     def calculate_position_size(self, price: float, available_cash: float) -> int:
         """Calculate number of shares to buy."""
@@ -116,11 +109,6 @@ class ValueWheelStrategy(Strategy):
     
     def on_bar(self, bar: Bar) -> list[Order]:
         orders = []
-        
-        # Update buy threshold if not set
-        if self._buy_threshold == 0 and hasattr(self, '_historical_data'):
-            self._yearly_stats = self.calculate_yearly_stats(self._historical_data)
-            self._buy_threshold = self.compute_buy_threshold(self._yearly_stats)
         
         symbol = bar.symbol
         price = bar.close
@@ -244,12 +232,12 @@ def run_value_wheel_backtest(
     # Calculate stats
     strategy = ValueWheelStrategy("value_wheel", [sym], cfg)
     yearly_stats = strategy.calculate_yearly_stats(df)
-    buy_threshold = strategy.compute_buy_threshold(yearly_stats)
+    buy_threshold = cfg.fixed_buy_threshold
     
     print(f"Yearly Stats:")
     for y, s in yearly_stats.items():
         print(f"  {y}: Low={s.low:.2f}, High={s.high:.2f}, AvgLow={s.avg_low:.2f}")
-    print(f"Buy Threshold: ${buy_threshold:.2f}")
+    print(f"Buy Threshold (fixed): ${buy_threshold:.2f}")
     print(f"Current Price: ${df['close'].iloc[-1]:.2f}")
     print(f"In Buy Zone: {df['close'].iloc[-1] <= buy_threshold}")
     
