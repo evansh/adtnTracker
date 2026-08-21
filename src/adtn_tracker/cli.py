@@ -248,6 +248,68 @@ def cmd_value_wheel(args):
     print(f"  4. If assigned at ${args.strike:.2f}, profit = ${(args.strike - fixed_threshold)*100:.0f} + premiums")
 
 
+def cmd_pattern_compare(args):
+    """Compare candlestick pattern performance."""
+    from .backtest import compare_patterns, BacktestConfig
+    from .data import YFinanceProvider
+    from .config import get_settings
+    from .core import Symbol, TimeFrame
+    
+    provider = YFinanceProvider(get_settings().yfinance)
+    provider.connect()
+    
+    symbol = Symbol(ticker=args.symbol)
+    end = datetime.now()
+    start = end - timedelta(days=args.days)
+    
+    print(f"Fetching {args.symbol} data for pattern comparison...")
+    bars = provider.get_bars(symbol, TimeFrame.DAY_1, start, end)
+    
+    if not bars:
+        print("No data available")
+        return
+    
+    df = pd.DataFrame([{
+        "symbol": str(symbol),
+        "timestamp": b.timestamp,
+        "open": b.open,
+        "high": b.high,
+        "low": b.low,
+        "close": b.close,
+        "volume": b.volume,
+    } for b in bars])
+    
+    print(f"Data: {len(df)} bars from {df['timestamp'].min().date()} to {df['timestamp'].max().date()}")
+    
+    config = BacktestConfig(
+        initial_capital=100000.0,
+        position_size_pct=0.10,
+        commission_per_share=0.005,
+        slippage_pct=0.001,
+    )
+    
+    print(f"\nComparing patterns...")
+    results = compare_patterns(df, args.patterns, config)
+    
+    if results.empty:
+        print("No results")
+        return
+    
+    # Filter by direction
+    if args.direction == "bullish":
+        # We'd need to track direction - for now just show all
+        pass
+    
+    print(f"\n{'Pattern':<25} {'Return':>10} {'CAGR':>8} {'Sharpe':>8} {'MaxDD':>8} {'Win%':>7} {'PF':>6} {'Trades':>6} {'Signals':>8}")
+    print("-" * 105)
+    for _, row in results.iterrows():
+        print(f"{row['pattern']:<25} {row['total_return']:>9.2%} {row['cagr']:>7.2%} {row['sharpe']:>7.2f} {row['max_drawdown']:>7.2%} {row['win_rate']:>6.1%} {row['profit_factor']:>5.2f} {row['num_trades']:>6} {row['num_signals']:>8}")
+    
+    if args.output:
+        results.to_csv(args.output, index=False)
+        print(f"\nResults saved to {args.output}")
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="adtn_tracker - Stock tracking and trading framework"
@@ -315,6 +377,15 @@ def main():
     p_vw.add_argument("--threshold", type=float, default=8.0, help="Fixed price threshold to buy (e.g., 8.0)")
     p_vw.add_argument("--strike", type=float, default=15.0, help="Call strike to sell")
     p_vw.set_defaults(func=cmd_value_wheel)
+
+    # pattern-compare
+    p_pc = subparsers.add_parser("pattern-compare", help="Compare candlestick pattern performance")
+    p_pc.add_argument("symbol", help="Symbol (e.g., ADTN)")
+    p_pc.add_argument("--days", type=int, default=730, help="Days of history to analyze")
+    p_pc.add_argument("--patterns", nargs="+", help="Patterns to test (default: all)")
+    p_pc.add_argument("--direction", choices=["bullish", "bearish", "both"], default="both")
+    p_pc.add_argument("--output", help="Output CSV file for results")
+    p_pc.set_defaults(func=cmd_pattern_compare)
 
     args = parser.parse_args()
 

@@ -3,9 +3,18 @@
 import logging
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Optional
 
 import numpy as np
 import pandas as pd
+
+from .candlestick_patterns import (
+    generate_pattern_signals,
+    get_pattern_occurrences,
+    ALL_PATTERNS,
+    BULLISH_PATTERNS,
+    BEARISH_PATTERNS,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -311,3 +320,62 @@ def generate_sma_crossover_signals(data: pd.DataFrame, fast: int = 10, slow: int
     signals[death] = -1
 
     return signals
+
+
+def compare_patterns(
+    data: pd.DataFrame,
+    patterns: list[str] = None,
+    config: Optional[BacktestConfig] = None,
+) -> pd.DataFrame:
+    """Compare performance of multiple candlestick patterns.
+    
+    Args:
+        data: DataFrame with OHLCV data
+        patterns: List of pattern names to test (None = all)
+        config: Backtest configuration
+    
+    Returns:
+        DataFrame with performance metrics for each pattern
+    """
+    from .candlestick_patterns import ALL_PATTERNS, BULLISH_PATTERNS, BEARISH_PATTERNS, prepare_candlestick_data
+    
+    if patterns is None:
+        patterns = list(ALL_PATTERNS.keys())
+    
+    results = []
+    df = prepare_candlestick_data(data)
+    
+    for name in patterns:
+        if name not in ALL_PATTERNS:
+            continue
+        
+        # Generate signals for this pattern
+        if name in BULLISH_PATTERNS:
+            signals = BULLISH_PATTERNS[name](prepare_candlestick_data(data))
+            signals = signals.replace({True: 1, False: 0})
+        elif name in BEARISH_PATTERNS:
+            signals = BEARISH_PATTERNS[name](prepare_candlestick_data(data))
+            signals = signals.replace({True: -1, False: 0})
+        else:
+            continue
+        
+        # Run backtest
+        backtester = SimpleBacktester(config or BacktestConfig())
+        metrics = backtester.run(data, signals)
+        
+        # Count trades
+        num_signals = (signals != 0).sum()
+        
+        results.append({
+            "pattern": name,
+            "total_return": metrics.get("total_return", 0),
+            "cagr": metrics.get("cagr", 0),
+            "sharpe": metrics.get("sharpe", 0),
+            "max_drawdown": metrics.get("max_drawdown", 0),
+            "win_rate": metrics.get("win_rate", 0),
+            "profit_factor": metrics.get("profit_factor", 0),
+            "num_trades": metrics.get("num_trades", 0),
+            "num_signals": int(num_signals),
+        })
+    
+    return pd.DataFrame(results).sort_values("total_return", ascending=False)

@@ -95,3 +95,15 @@ class TestCLI:
         assert result.returncode == 0
         assert "VALUE WHEEL ANALYSIS" in result.stdout
         assert "BUY" in result.stdout or "WAIT" in result.stdout
+
+    def test_cli_pattern_compare_analysis(self):
+        """Test pattern-compare analysis runs."""
+        result = subprocess.run(
+            [sys.executable, "-m", "adtn_tracker.cli", "pattern-compare", "ADTN", "--days", "30"],
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+        assert result.returncode == 0
+        assert "Pattern" in result.stdout
+        assert "Return" in result.stdout
